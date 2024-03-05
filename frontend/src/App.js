@@ -1,8 +1,6 @@
 import React, { useState } from "react";
 import "./App.css";
-
-// Use REACT_APP_BACKEND_URL or http://localhost:8080 as the API_BASE
-const API_BASE = process.env.REACT_APP_BACKEND_URL || "http://localhost:8080";
+import * as GameAPI from "./api/game";
 
 function App() {
   const [gameSession, setGameSession] = useState(null);
@@ -15,54 +13,44 @@ function App() {
   const startGame = async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const res = await fetch(`${API_BASE}/game/start`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-      const data = await res.json();
+      const data = await GameAPI.startGame();
       setGameSession(data.sessionId);
-      fetchQuestions();
+      populateQuestions();
     } catch (err) {
       setError("Failed to start game.");
+      throw err;
     }
+
     setLoading(false);
   };
 
-  const fetchQuestions = async () => {
-    setLoading(true);
+  const populateQuestions = async () => {
     try {
-      const res = await fetch(`${API_BASE}/questions`);
-      const data = await res.json();
+      const data = await GameAPI.fetchQuestions();
       setQuestions(data);
     } catch (err) {
-      setError("Failed to fetch questions.");
+      setError("Failed to populate questions.");
     }
-    setLoading(false);
   };
 
   const submitAnswer = async (index) => {
     // We are submitting the index
     setLoading(true);
     const currentQuestion = questions[currentQuestionIndex];
+
     try {
-      const res = await fetch(`${API_BASE}/answer`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: gameSession,
-          questionId: currentQuestion.id, // field name is "id", not "questionId"
-          answer: index,
-        }),
+      const data = await GameAPI.submitAnswer({
+        sessionId: gameSession,
+        questionId: currentQuestion.id, // field name is "id", not "questionId"
+        answer: index,
       });
-      const data = await res.json();
+
       if (data.correct) {
         setScore(data.currentScore); // Update score from server's response
       }
+
       if (currentQuestionIndex < questions.length - 1) {
         setCurrentQuestionIndex(currentQuestionIndex + 1);
       } else {
@@ -71,23 +59,20 @@ function App() {
     } catch (err) {
       setError("Failed to submit answer.");
     }
+
     setLoading(false);
   };
 
   const endGame = async () => {
     setLoading(true);
+
     try {
-      const res = await fetch(`${API_BASE}/game/end`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          sessionId: gameSession, // need to provide the sessionId
-        }),
+      const data = await GameAPI.endGame({
+        sessionId: gameSession, // need to provide the sessionId
       });
-      const data = await res.json();
+
       alert(`Game over! Your score: ${data.finalScore}`); // Use the finalScore from the response
+
       setGameSession(null);
       setQuestions([]);
       setCurrentQuestionIndex(0);
@@ -95,6 +80,7 @@ function App() {
     } catch (err) {
       setError("Failed to end game.");
     }
+
     setLoading(false);
   };
 
